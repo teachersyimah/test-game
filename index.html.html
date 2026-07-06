@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESL City Pronunciation Obstacle Game</title>
+    <style>
+        :root {
+            --primary: #4a90e2;
+            --success: #2ecc71;
+            --danger: #e74c3c;
+            --dark: #2c3e50;
+            --light: #ecf0f1;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #b3e5fc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+
+        #game-container {
+            background: white;
+            width: 100%;
+            max-width: 600px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top Dashboard */
+        #dashboard {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: var(--dark);
+            color: white;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        #progress-container {
+            background: rgba(255,255,255,0.2);
+            height: 10px;
+            width: 100%;
+            position: relative;
+        }
+        #progress-bar {
+            background: var(--success);
+            height: 100%;
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        /* Game Canvas viewport */
+        #canvas-container {
+            position: relative;
+            width: 100%;
+            height: 200px;
+            background: #87ceeb;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Interactive UI area */
+        #ui-container {
+            padding: 20px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            background: #f9f9f9;
+            flex-grow: 1;
+        }
+
+        #sentence-box {
+            font-size: 1.4rem;
+            color: var(--dark);
+            font-weight: 700;
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            border: 3px dashed var(--primary);
+            min-height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #feedback-box {
+            font-size: 1.2rem;
+            font-weight: bold;
+            height: 30px;
+            transition: all 0.3s ease;
+        }
+        .feedback-correct { color: var(--success); transform: scale(1.1); }
+        .feedback-wrong { color: var(--danger); }
+        .feedback-info { color: #f39c12; }
+
+        #transcript-box {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+            font-style: italic;
+            min-height: 20px;
+        }
+
+        /* Buttons styling */
+        .btn-group {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            min-height: 60px;
+        }
+
+        button {
+            border: none;
+            padding: 12px 25px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        button:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        #mic-btn { background: var(--primary); color: white; width: 100%; max-width: 250px;}
+        #mic-btn.recording { background: var(--danger); animation: pulse 1.5s infinite; }
+        #next-btn { background: var(--success); color: white; display: none; }
+        #retry-btn { background: #f39c12; color: white; display: none; }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.6; }
+            100% { opacity: 1; }
+        }
+
+        /* Screen States */
+        #end-screen {
+            display: none;
+            padding: 40px 20px;
+            text-align: center;
+            flex-direction: column;
+            gap: 20px;
+        }
+        #end-screen h2 { color: var(--success); font-size: 2.5rem; }
+        #end-screen p { font-size: 1.3rem; color: var(--dark); }
+        #restart-btn { background: var(--dark); color: white; margin: 0 auto; }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="dashboard">
+            <span id="level-indicator">Level: 1 / 10</span>
+            <span id="score-indicator">Score: 0</span>
+        </div>
+        <div id="progress-container">
+            <div id="progress-bar"></div>
+        </div>
+
+        <div id="canvas-container">
+            <canvas id="gameCanvas"></canvas>
+        </div>
+
+        <div id="ui-container">
+            <div id="game-play-zone">
+                <div id="sentence-box">Loading sentence...</div>
+                <div id="feedback-box"></div>
+                <div id="transcript-box"></div>
+                
+                <div class="btn-group">
+                    <button id="mic-btn">🎤 Push to Talk</button>
+                    <button id="retry-btn">🔄 Try Again</button>
+                    <button id="next-btn">Next Level ➡️</button>
+                </div>
+            </div>
+
+            <div id="end-screen">
+                <h2>🏆 Spectacular!</h2>
+                <p>You completed the city tour!</p>
+                <p id="final-score">Final Score: 0</p>
+                <button id="restart-btn">Play Again</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- GAME CONFIGURATION & STATE ---
+    const sentences = [
+        "The park is big and green.",
+        "The library is quiet and clean.",
+        "The market is busy and noisy.",
+        "The shopping mall is huge and bright.",
+        "The museum is old and interesting.",
+        "The hospital is big and modern.",
+        "The cinema is dark and comfortable.",
+        "The playground is fun and colourful.",
+        "The train station is busy and loud.",
+        "The city park is peaceful and beautiful."
+    ];
+
+    let currentLevel = 0;
+    let score = 0;
+    let isRecording = false;
+    let speechStartTime = 0;
+    let recognition;
+
+    // --- DOM ELEMENTS ---
+    const sentenceBox = document.getElementById('sentence-box');
+    const feedbackBox = document.getElementById('feedback-box');
+    const transcriptBox = document.getElementById('transcript-box');
+    const micBtn = document.getElementById('mic-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const retryBtn = document.getElementById('retry-btn');
+    const levelIndicator = document.getElementById('level-indicator');
+    const scoreIndicator = document.getElementById('score-indicator');
+    const progressBar = document.getElementById('progress-bar');
+    const gamePlayZone = document.getElementById('game-play-zone');
+    const endScreen = document.getElementById('end-screen');
+    const finalScoreText = document.getElementById('final-score');
+    const restartBtn = document.getElementById('restart-btn');
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // --- ANIMATION ENGINE ---
+    let carX = 50;
+    let carY = 130;
+    let obstacleX = 400;
+    let obstacleType = 'barrier'; // barrier, cone, light
+    let targetCarX = 50;
+    let isCrashing = false;
+    let crashTimer = 0;
+    let sceneryOffset = 0;
+
+    function resizeCanvas() {
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = canvas.parentElement.clientHeight;
+        obstacleX = canvas.width - 120;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function drawGame() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Sky & Sun
+        ctx.fillStyle = "#87ceeb";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#f1c40f";
+        ctx.beginPath();
+        ctx.arc(canvas.width - 50, 40, 20, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Cartoon Background Houses
+        ctx.fillStyle = "#bcdae7";
+        for (let i = 0; i < 6; i++) {
+            let x = (i * 120) - (sceneryOffset % 120);
+            ctx.fillRect(x, 60, 80, 90);
+            ctx.fillStyle = "#95a5a6";
+            ctx.fillRect(x + 15, 80, 15, 15);
+            ctx.fillRect(x + 50, 80, 15, 15);
+            ctx.fillStyle = "#bcdae7";
+        }
+
+        // Road
+        ctx.fillStyle = "#7f8c8d";
+        ctx.fillRect(0, 150, canvas.width, 50);
+        ctx.fillStyle = "#f1c40f";
+        ctx.fillRect(0, 173, canvas.width, 4);
+
+        // Approach/Pass logic
+        if (carX < targetCarX) carX += 4;
+        if (carX > targetCarX) carX -= 2;
+
+        // Draw Obstacle (Only show if not clear yet on current level)
+        if (carX < obstacleX + 20) {
+            ctx.fillStyle = "#e67e22"; // Orange cone/barrier
+            ctx.fillRect(obstacleX, 120, 25, 30);
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(obstacleX, 130, 25, 6);
+            ctx.fillRect(obstacleX, 142, 25, 4);
+        }
+
+        // Draw Car
+        ctx.save();
+        if (isCrashing) {
+            crashTimer++;
+            ctx.translate(carX + 25, carY + 15);
+            ctx.rotate((Math.sin(crashTimer) * 15 * Math.PI) / 180); // Wobble crash
+            ctx.translate(-(carX + 25), -(carY + 15));
+            // Smoke particles
+            ctx.fillStyle = "rgba(120,120,120,0.6)";
+            ctx.beginPath();
+            ctx.arc(carX - 10, carY + 5, crashTimer % 15, 0, Math.PI*2);
+            ctx.fill();
+        }
+
+        // Car Body
+        ctx.fillStyle = "#e74c3c";
+        ctx.fillRect(carX, carY, 60, 25);
+        ctx.fillStyle = "#3498db";
+        ctx.fillRect(carX + 35, carY - 12, 20, 15); // Cabin
+        ctx.fillStyle = "#e74c3c";
+        ctx.fillRect(carX + 15, carY - 12, 22, 15);
+
+        // Wheels
+        ctx.fillStyle = "#2c3e50";
+        ctx.beginPath(); ctx.arc(carX + 15, carY + 25, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(carX + 45, carY + 25, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+
+        requestAnimationFrame(drawGame);
+    }
+    requestAnimationFrame(drawGame);
+
+    // --- SYNTHESIZED SOUND EFFECTS (Web Audio API) ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function playSound(type) {
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (type === 'success') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.3);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+        } else if (type === 'crash') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(40, audioCtx.currentTime + 0.4);
+            gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+        }
+    }
+
+    // --- SPEECH RECOGNITION SETUP ---
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+        sentenceBox.innerHTML = "❌ Web Speech API is not supported in this browser. Please use Google Chrome or MS Edge.";
+        micBtn.style.display = "none";
+    } else {
+        recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+
+        recognition.onstart = () => {
+            isRecording = true;
+            speechStartTime = Date.now();
+            micBtn.innerText = "🛑 Recording...";
+            micBtn.classList.add('recording');
+            feedbackBox.innerText = "";
+            feedbackBox.className = "";
+            transcriptBox.innerText = "";
+            isCrashing = false;
+        };
+
+        recognition.onerror = (e) => {
+            console.error(e);
+            handleSpeechFailure("Please speak clearly and try again.");
+            stopMicUI();
+        };
+
+        recognition.onend = () => {
+            stopMicUI();
+        };
+
+        recognition.onresult = (event) => {
+            const speechDuration = (Date.now() - speechStartTime) / 1000;
+            const resultText = event.results[0][0].transcript;
+            transcriptBox.innerText = `You said: "${resultText}"`;
+
+            // Rule constraint: Speech must be at least 2 seconds long
+            if (speechDuration < 2.0) {
+                handleSpeechFailure("Please speak clearly and try again.");
+                return;
+            }
+
+            evaluatePronunciation(resultText);
+        };
+    }
+
+    function stopMicUI() {
+        isRecording = false;
+        micBtn.innerText = "🎤 Push to Talk";
+        micBtn.classList.remove('recording');
+    }
+
+    // --- GAME MECHANICS & LOGIC ---
+    function initLevel() {
+        levelIndicator.innerText = `Level: ${currentLevel + 1} / ${sentences.length}`;
+        scoreIndicator.innerText = `Score: ${score}`;
+        progressBar.style.width = `${(currentLevel / sentences.length) * 100}%`;
+        sentenceBox.innerText = sentences[currentLevel];
+        
+        feedbackBox.innerText = "";
+        feedbackBox.className = "";
+        transcriptBox.innerText = "";
+        
+        nextBtn.style.display = "none";
+        retryBtn.style.display = "none";
+        micBtn.style.display = "inline-flex";
+
+        // Reset car visual states
+        isCrashing = false;
+        crashTimer = 0;
+        targetCarX = obstacleX - 80; // Park safely in front of obstacle
+    }
+
+    // Microphones Noise Reduction System Activator
+    async function activateMicPipeline() {
+        try {
+            await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    noiseSuppression: true,
+                    echoCancellation: true,
+                    autoGainControl: true
+                }
+            });
+            if (!isRecording) {
+                recognition.start();
+            }
+        } catch (err) {
+            feedbackBox.innerText = "Microphone access denied.";
+            feedbackBox.className = "feedback-wrong";
+        }
+    }
+
+    micBtn.addEventListener('click', () => {
+        if (!isRecording) {
+            activateMicPipeline();
+        }
+    });
+
+    retryBtn.addEventListener('click', () => {
+        initLevel();
+    });
+
+    nextBtn.addEventListener('click', () => {
+        currentLevel++;
+        if (currentLevel < sentences.length) {
+            // Shift background down a bit for simulated driving to next station
+            sceneryOffset += 150;
+            initLevel();
+        } else {
+            showEndGame();
+        }
+    });
+
+    function handleSpeechFailure(message) {
+        playSound('crash');
+        isCrashing = true;
+        feedbackBox.innerText = message;
+        feedbackBox.className = "feedback-wrong";
+        micBtn.style.display = "none";
+        retryBtn.style.display = "inline-flex";
+        targetCarX = carX - 30; // bounce back a tiny bit on hit
+    }
+
+    function evaluatePronunciation(spokenText) {
+        const target = cleanText(sentences[currentLevel]);
+        const spoken = cleanText(spokenText);
+
+        const similarity = calculateSimilarity(target, spoken);
+
+        if (similarity >= 0.82) { // 80-90% Acceptance Target Window
+            playSound('success');
+            score += 10;
+            scoreIndicator.innerText = `Score: ${score}`;
+            feedbackBox.innerText = "Correct! +10 points";
+            feedbackBox.className = "feedback-correct";
+            
+            micBtn.style.display = "none";
+            nextBtn.style.display = "inline-flex";
+            
+            targetCarX = canvas.width + 100; // Animate past obstacle space safely
+        } else {
+            handleSpeechFailure("Try again");
+        }
+    }
+
+    function cleanText(text) {
+        return text.toLowerCase()
+                   .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,"")
+                   .replace(/\s+/g," ")
+                   .trim();
+    }
+
+    // Levenshtein Distance Algorithm for Text Similarity Indexing
+    function calculateSimilarity(s1, s2) {
+        let longer = s1;
+        let shorter = s2;
+        if (s1.length < s2.length) {
+            longer = s2;
+            shorter = s1;
+        }
+        let longerLength = longer.length;
+        if (longerLength === 0) return 1.0;
+        
+        return (longerLength - editDistance(longer, shorter)) / parseFloat(longerLength);
+    }
+
+    function editDistance(s1, s2) {
+        let costs = [];
+        for (let i = 0; i <= s1.length; i++) {
+            let lastValue = i;
+            for (let j = 0; j <= s2.length; j++) {
+                if (i == 0) costs[j] = j;
+                else {
+                    if (j > 0) {
+                        let newValue = costs[j - 1];
+                        if (s1.charAt(i - 1) != s2.charAt(j - 1))
+                            newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+                        costs[j - 1] = lastValue;
+                        lastValue = newValue;
+                    }
+                }
+            }
+            if (i > 0) costs[s2.length] = lastValue;
+        }
+        return costs[s2.length];
+    }
+
+    function showEndGame() {
+        progressBar.style.width = "100%";
+        gamePlayZone.style.display = "none";
+        endScreen.style.display = "flex";
+        finalScoreText.innerText = `Final Score: ${score} / ${sentences.length * 10}`;
+    }
+
+    restartBtn.addEventListener('click', () => {
+        currentLevel = 0;
+        score = 0;
+        gamePlayZone.style.display = "block";
+        endScreen.style.display = "none";
+        initLevel();
+    });
+
+    // Start Game Initialization Loop
+    initLevel();
+</script>
+</body>
+</html>
